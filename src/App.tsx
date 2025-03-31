@@ -1,13 +1,13 @@
 import * as React from 'react';
 import Gateway from './components/gateway';
 import User from './components/user';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Login from './components/login';
 
 const App: React.FC = () => {
 
   return (
-    <Router>
+    // <Router>
     <Routes>
       <Route path="/login" element={
         <Login />
@@ -32,7 +32,7 @@ const App: React.FC = () => {
         // </TabContext>
       } />
       </Routes>
-    </Router>
+    // </Router>
   );
 };
 
