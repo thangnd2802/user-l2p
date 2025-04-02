@@ -6,6 +6,7 @@ import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import CloseIcon from '@mui/icons-material/Close';
 import { useNavigate } from 'react-router-dom';
 
+const apiUrl = import.meta.env.VITE_API_URL;
 
 export interface UserProfile {
     firstName: string;
@@ -62,18 +63,38 @@ export interface PaymentDisplay {
     message: string;
 }
 
-const User: React.FC = () => {
-    
+export interface PaymentMethod {
+    token: string;
+    address: string;
+    network: string;
+    networkId: string;
+    networkLogo: string;
+    tokenLogo: string;
+    method: string;
+}
 
+const User: React.FC = () => {
     
     const [profile, setProfile] = React.useState<UserProfile | null>(null);
     const [addressbook, setAddressbook] = React.useState<AddressBook| null>(null);
     const [isAdding, setIsAdding] = React.useState(false);
     const [networks, setNetworks] = React.useState<Network[]>([]);
+    const [paymentMethods, setPaymentMethods] = React.useState<PaymentMethod[]>([]);
+    const [chosenMethods, setChosenMethods] = React.useState<string[]>([]);
+
+    const onChoosePaymentMethod = (event: SelectChangeEvent<typeof chosenMethods>) => {
+        const {
+            target: { value },
+          } = event;
+        setChosenMethods(
+            typeof value === 'string' ? value.split(',') : value,
+        );
+    }
+
     const navigate = useNavigate();
     
     const getProfile = async () => {
-        const response = await fetch('https://l2p.jken.me/api/v1/user/profile', {
+        const response = await fetch(`${apiUrl}/user/profile`, {
         credentials: 'include',
         });
         if (response.status === 401) {
@@ -86,7 +107,7 @@ const User: React.FC = () => {
     }
 
     const getAddressbook = async () => {
-        const response = await fetch('https://l2p.jken.me/api/v1/address-book', {
+        const response = await fetch(`${apiUrl}/address-book`, {
         credentials: 'include',
         });
         const data = await response.json();
@@ -94,11 +115,27 @@ const User: React.FC = () => {
     }
 
     const getNetworks = async () => {
-        const response = await fetch('https://l2p.jken.me/api/v1/network', {
+        const response = await fetch(`${apiUrl}/network`, {
         credentials: 'include',
         });
         const data = await response.json();
         setNetworks(data.data);
+    }
+
+    const fetchPaymentMethods = async () => {
+        const response = await fetch(`${apiUrl}/payment/methods`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        const data = await response.json();
+        if (data.error === false) {
+            setPaymentMethods(data.data);
+        } else {
+            console.error(data.message);
+        }
     }
 
     const [networkChosen, setNetworkChosen] = React.useState<string>("");
@@ -112,6 +149,7 @@ const User: React.FC = () => {
         getProfile();
         getNetworks();
         fetchPayments();
+        fetchPaymentMethods();
     },[])
 
     useEffect(() => {
@@ -126,7 +164,7 @@ const User: React.FC = () => {
             console.error('Addressbook or networkChosen or addressChosen is null');
             return;
         }
-        const response = await fetch('https://l2p.jken.me/api/v1/address-book/network-address', {
+        const response = await fetch(`${apiUrl}/address-book/network-address`, {
             method: 'POST',
             credentials: 'include',
             headers: {
@@ -154,19 +192,19 @@ const User: React.FC = () => {
         }
     }
 
-    const [networKAddressChosen, setNetworkAddressChoosen] = React.useState<string>("");
-    const handleChoseNetworkAddress = (event: SelectChangeEvent) => {
-        setNetworkAddressChoosen(event.target.value);
-    };
-    const [tokenChosen, setTokenChosen] = React.useState<string[]>([]);
-    const handleChoseToken = (event: SelectChangeEvent<typeof tokenChosen>) => {
-        const {
-            target: { value },
-          } = event;
-        setTokenChosen(
-            typeof value === 'string' ? value.split(',') : value,
-        );
-    };
+    // const [networKAddressChosen, setNetworkAddressChoosen] = React.useState<string>("");
+    // const handleChoseNetworkAddress = (event: SelectChangeEvent) => {
+    //     setNetworkAddressChoosen(event.target.value);
+    // };
+    // const [tokenChosen, setTokenChosen] = React.useState<string[]>([]);
+    // const handleChoseToken = (event: SelectChangeEvent<typeof tokenChosen>) => {
+    //     const {
+    //         target: { value },
+    //       } = event;
+    //     setTokenChosen(
+    //         typeof value === 'string' ? value.split(',') : value,
+    //     );
+    // };
 
     function isAmountValid(amount: string): boolean {
         const regex = /^\d+(\.\d{1,2})?$/; // Regex to match numbers with up to 2 decimal places
@@ -187,7 +225,7 @@ const User: React.FC = () => {
     };
 
     const logout = async () => {
-        const response = await fetch('https://l2p.jken.me/api/v1/auth/logout', {
+        const response = await fetch(`${apiUrl}/auth/logout`, {
             method: 'POST',
             credentials: 'include',
         });
@@ -198,8 +236,8 @@ const User: React.FC = () => {
             setNetworks([]);
             setNetworkChosen("");
             setAddressChosen("");
-            setNetworkAddressChoosen("");
-            setTokenChosen([]);
+            // setNetworkAddressChoosen("");
+            // setTokenChosen([]);
             setAmount('');
             setExpiresIn('');
             setMessage('');
@@ -220,20 +258,19 @@ const User: React.FC = () => {
     }, [openAlert]);
 
     const createPayment = async () => {
-        if (addressbook === null || networKAddressChosen === "" || tokenChosen.length === 0 || amount === '' || expiresIn === '' || message.length > 100) {
+        if (addressbook === null ||  amount === '' || expiresIn === '' || message.length > 100) {
             handleOpenAlert('Please fill all fields', 'error');
             return;
         }
         const expiresInMinutes = (Number(expiresIn) * 60 * 1000).toString();
-        const response = await fetch('https://l2p.jken.me/api/v1/payment', {
+        const response = await fetch(`${apiUrl}/payment`, {
             method: 'POST',
             credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                networkId: networKAddressChosen,
-                currencies: tokenChosen,
+                methods: chosenMethods,
                 amount: amount,
                 expiresIn: expiresInMinutes,
                 message: message,
@@ -245,8 +282,8 @@ const User: React.FC = () => {
             setAmount('');
             setExpiresIn('');
             setMessage('');
-            setNetworkAddressChoosen("");
-            setTokenChosen([]);
+            // setNetworkAddressChoosen("");
+            // setTokenChosen([]);
             fetchPayments();
             setShowAmountError(false);
             setShowExpiresInError(false);
@@ -268,7 +305,7 @@ const User: React.FC = () => {
     const paginationModel = { page: 1, pageSize: 10 };
 
     const fetchPayments = async () => {
-        const response = await fetch('https://l2p.jken.me/api/v1/payment', {
+        const response = await fetch(`${apiUrl}/payment`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -292,22 +329,32 @@ const User: React.FC = () => {
             renderCell: (params) => {
                 const items = params.value as string[];
                 return (
-                    items.map((item, index) => (
-                      <Box
-                        key={index}
-                        sx={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1.5fr 5fr",
-                            borderBottom: "1px solid rgba(224, 224, 224, 1)", // Fix border issue
-                            borderLeft: "1px solid rgba(224, 224, 224, 1)", // Fix border issue
-                            borderRight: "1px solid rgba(224, 224, 224, 1)", // Fix border issue
-                        }}
-                      >
-                        <Box className="flex justify-center items-center">{item.split(":")[0]}</Box>
-                        <Box sx={{ borderLeft: '1px solid rgba(224, 224, 224, 1)', borderRight: '1px solid rgba(224, 224, 224, 1)'}} className="flex justify-center items-center">{item.split(":")[1]}</Box>
-                        <Box className="flex justify-center items-center">{item.split(":")[2]}</Box>
-                      </Box>
-                    ))
+                    <Box sx={{
+                        display: 'grid',
+                        gridTemplateRows: `repeat(${items.length}, 1fr)`,
+                        minHeight: '60px',
+                        width: '100%',
+                    }}>
+                    {
+                        items.map((item, index) => (
+                            <Box
+                                key={index}
+                                sx={{
+                                    display: "grid",
+                                    gridTemplateColumns: "1fr 1.5fr 5fr",
+                                    borderLeft: "1px solid rgba(224, 224, 224, 1)", // Fix border issue
+                                    borderRight: "1px solid rgba(224, 224, 224, 1)", // Fix border issue
+                                    borderBottom: index === items.length - 1 ? "none" : "1px solid rgba(224, 224, 224, 1)", // Fix border issue
+                                }}
+                            >
+                                <Box className="flex justify-center items-center">{item.split(":")[0]}</Box>
+                                <Box sx={{ borderLeft: '1px solid rgba(224, 224, 224, 1)', borderRight: '1px solid rgba(224, 224, 224, 1)'}} className="flex justify-center items-center">{item.split(":")[1]}</Box>
+                                <Box className="flex justify-center items-center">{item.split(":")[2]}</Box>
+                            </Box>
+                            
+                            ))
+                    }
+                    </Box>
                 );
             },
         },
@@ -437,7 +484,7 @@ const User: React.FC = () => {
                         {
                             isAdding && (
                                 <ListItem>
-                                    <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
+                                    <FormControl variant="standard" sx={{ m: 1, minWidth: 180 }}>
                                         <InputLabel id="demo-simple-select-standard-label">Network</InputLabel>
                                         <Select
                                             labelId="demo-simple-select-standard-label"
@@ -505,9 +552,9 @@ const User: React.FC = () => {
                 profile &&
                 <div className="flex flex-col gap-5 ml-3 w-250">
                     <div className="flex flex-row gap-2 justify-between">
-                        <div className="flex">
+                        {/* <div className="flex">
                             <FormControl variant="standard" sx={{ m: 1, minWidth: 300 }}>
-                                <InputLabel id="select-payment-network-label">Select payment Network</InputLabel>
+                                <InputLabel id="select-payment-network-label">Select payment methods</InputLabel>
                                 <Select
                                     labelId="select-payment-network-label"
                                     id="select-payment-network"
@@ -527,29 +574,28 @@ const User: React.FC = () => {
                                     }
                                 </Select>
                             </FormControl>
-                        </div>
+                        </div> */}
                         <div className="flex">
                             <FormControl 
                                 variant="standard" 
-                                sx={{ m: 1, minWidth: 300 }} 
-                                disabled={networKAddressChosen === ""}
-                                color={networKAddressChosen === "" ? "secondary" : "primary"}
+                                sx={{ m: 1, minWidth: 700 }} 
                             >
-                            <InputLabel id="select-payment-token-label">Select payment Token</InputLabel>
+                            <InputLabel id="select-payment-token-label">Select payment Methods</InputLabel>
                                 <Select
                                     labelId="select-payment-token-label"
                                     id="select-payment-token"
-                                    value={tokenChosen}
-                                    onChange={handleChoseToken}
-                                    label="Select payment Token"
-                                    disabled={networKAddressChosen === ""}
+                                    value={chosenMethods}
+                                    onChange={onChoosePaymentMethod}
+                                    label="Select payment methods"
+                                    multiple
                                     >
                                     {
-                                        networks.find(n => n._id == networKAddressChosen)?.supportedTokens.map((token) => (
-                                            <MenuItem key={token.address} value={token.symbol}>
+                                        paymentMethods.map((method, idx) => (
+                                            <MenuItem key={idx} value={method.method}>
                                                 <div className="flex flex-row gap-2">
-                                                    <img src={token.logo} alt={token.address} className="w-5 h-5" />
-                                                    {token.symbol}
+                                                    <img src={method.tokenLogo} alt={method.address} className="w-5 h-5" />
+                                                    <img src={method.networkLogo} alt={method.network} className="w-5 h-5" />
+                                                    {`${method.network} - ${method.token} - ${method.address.substring(0, 5)}...${method.address.substring(method.address.length - 5)}`}
                                                 </div>
                                             </MenuItem>
                                         ))
@@ -600,7 +646,7 @@ const User: React.FC = () => {
                         onClick={createPayment}
                         size="small"
                         sx={{ m: 1, minWidth: 100 }}
-                        disabled={networKAddressChosen === "" || tokenChosen.length === 0 || amount === '' || expiresIn === '' || message.length > 100 || !isAmountValid(amount) || isNaN(Number(expiresIn)) || Number(expiresIn) <= 0}
+                        disabled={amount === '' || expiresIn === '' || message.length > 100 || !isAmountValid(amount) || isNaN(Number(expiresIn)) || Number(expiresIn) <= 0 || chosenMethods.length === 0}
                         color="primary"
                     >
                         Create
@@ -620,6 +666,7 @@ const User: React.FC = () => {
                 <Paper sx={{  width: '100%' }}>
                     <DataGrid
                         getRowId={(row) => row.payId}
+                        getRowHeight={() => 'auto'}
                         rows={rows}
                         columns={columns}
                         initialState={{ pagination: { paginationModel } }}

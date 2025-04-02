@@ -6,6 +6,9 @@ import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
 import { useNavigate } from 'react-router-dom';
+
+const apiUrl = import.meta.env.VITE_API_URL;
+const redirectUrl = import.meta.env.VITE_REDIRECT_URL;
 const Login: React.FC = () => {
 
     const [value, setValue] = React.useState('1');
@@ -18,8 +21,9 @@ const Login: React.FC = () => {
       setValue(newValue);
     };
 
-    const handleLogin = () => {
-        window.location.href = 'https://l2p.jken.me/api/v1/auth/google/login'; // Replace with your NestJS API URL
+    const handleLogin =  async () => {
+        const redirectUri = encodeURIComponent(redirectUrl); // Replace with your redirect URL
+        window.location.href = `${apiUrl}/auth/google/login?redirectUri=${redirectUri}`; // Replace with your NestJS API URL
     };
 
     return (
