@@ -81,6 +81,7 @@ const User: React.FC = () => {
     const [networks, setNetworks] = React.useState<Network[]>([]);
     const [paymentMethods, setPaymentMethods] = React.useState<PaymentMethod[]>([]);
     const [chosenMethods, setChosenMethods] = React.useState<string[]>([]);
+    const [isAuth, setIsAuth] = React.useState(false);
 
     const onChoosePaymentMethod = (event: SelectChangeEvent<typeof chosenMethods>) => {
         const {
@@ -94,12 +95,16 @@ const User: React.FC = () => {
     const navigate = useNavigate();
     
     const getProfile = async () => {
-        const response = await fetch(`${apiUrl}/user/profile`, {
-        credentials: 'include',
+        const access_token = localStorage.getItem('access_token');
+        const response = await fetch(`${apiUrl}/user/profile`,{
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${access_token}`,
+            }
         });
         if (response.status === 401) {
             setProfile(null); 
-            navigate('/login');
             return;
         }
         const data = await response.json();
@@ -107,27 +112,32 @@ const User: React.FC = () => {
     }
 
     const getAddressbook = async () => {
+        const access_token = localStorage.getItem('access_token');
         const response = await fetch(`${apiUrl}/address-book`, {
-        credentials: 'include',
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${access_token}`, 
+            }
         });
         const data = await response.json();
         setAddressbook(data.data);
     }
 
     const getNetworks = async () => {
-        const response = await fetch(`${apiUrl}/network`, {
-        credentials: 'include',
-        });
+        
+        const response = await fetch(`${apiUrl}/network`);
         const data = await response.json();
         setNetworks(data.data);
     }
 
     const fetchPaymentMethods = async () => {
+        const access_token = localStorage.getItem('access_token');
         const response = await fetch(`${apiUrl}/payment/methods`, {
             method: 'GET',
-            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${access_token}`,
             },
         });
         const data = await response.json();
@@ -145,12 +155,53 @@ const User: React.FC = () => {
         setNetworkChosen(event.target.value);
     };
 
+    const exchangeAuthCode = async (auth_code: string) => {
+        const response = await fetch(`${apiUrl}/auth/token/exchange`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                auth_code: auth_code,
+            }),
+        });
+        if (response.status === 401) { // or not 200
+            navigate('/login');
+            return;
+        }
+        const data = await response.json();
+        const access_token = data.data.access_token;
+        localStorage.setItem('access_token', access_token);
+        setIsAuth(true);
+    }
+
     useEffect(() => {
-        getProfile();
-        getNetworks();
-        fetchPayments();
-        fetchPaymentMethods();
+        const access_token = localStorage.getItem('access_token');
+        if (access_token) {
+            setIsAuth(true);
+        } else {
+            const auth_code = new URLSearchParams(window.location.search).get('auth_code');
+            if (auth_code) {
+                exchangeAuthCode(auth_code);
+            } else {
+                navigate('/login');
+            }
+        }
+        
+        // getProfile();
+        // getNetworks();
+        // fetchPayments();
+        // fetchPaymentMethods();
     },[])
+
+    useEffect(() => {
+        if (isAuth) {
+            getProfile();
+            getNetworks();
+            fetchPayments();
+            fetchPaymentMethods();
+        }
+    }, [isAuth])
 
     useEffect(() => {
         if (profile) {
@@ -225,12 +276,9 @@ const User: React.FC = () => {
     };
 
     const logout = async () => {
-        const response = await fetch(`${apiUrl}/auth/logout`, {
-            method: 'POST',
-            credentials: 'include',
-        });
+        localStorage.removeItem('access_token');
         
-        if (response.status === 200) {
+        
             setProfile(null);
             setAddressbook(null);
             setNetworks([]);
@@ -243,9 +291,6 @@ const User: React.FC = () => {
             setMessage('');
             setOpenAlert(false);
             window.location.reload();
-        } else {
-            // console.error(data.message);
-        }
     }
 
     useEffect(() => {
@@ -305,11 +350,12 @@ const User: React.FC = () => {
     const paginationModel = { page: 1, pageSize: 10 };
 
     const fetchPayments = async () => {
+        const access_token = localStorage.getItem('access_token');
         const response = await fetch(`${apiUrl}/payment`, {
             method: 'GET',
-            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${access_token}`,
             },
         });
         const data = await response.json();
